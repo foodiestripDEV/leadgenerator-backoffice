@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="it">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Esempio – LeadForm</title>
+    <style>
+        body {
+            font-family: system-ui, sans-serif;
+            background: #f8fafc;
+            color: #111;
+            margin: 0;
+            padding: 2rem 1rem;
+        }
+
+        .container {
+            max-width: 560px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: .5rem;
+        }
+
+        p {
+            font-size: .9rem;
+            color: #555;
+            margin-bottom: 2rem;
+            line-height: 1.6;
+        }
+
+        .box {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 2rem;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Pagina di esempio</h1>
+        <p>
+            Questa pagina mostra come embeddare il form LeadForm in qualsiasi sito.<br>
+            Basta aggiungere un <code>&lt;div id="leadform-container"&gt;</code> e il tag <code>&lt;script&gt;</code>.
+        </p>
+        <div class="box">
+            <!-- ✅ Il form viene iniettato qui automaticamente -->
+            <div id="leadform-container"></div>
+            <div id="lf2" data-form="default"></div>
+        </div>
+    </div>
+
+    <!--
+    Lo script si auto-configura usando come base URL
+    l'origin da cui viene servito (es. http://localhost:3000).
+
+    Per usarlo su un dominio diverso dal backend, aggiungi:
+      data-api="https://tuo-backend.com"
+  -->
+    <script src="http://localhost:3000/embed/form.js"></script>
+
+</body>
+
+</html>
