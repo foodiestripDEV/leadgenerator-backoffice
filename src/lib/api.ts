@@ -2,7 +2,10 @@ import type { FormConfig, FormMeta, Lead, User, ExportTemplate } from './types';
 import { LS_JWT_KEY } from './auth';
 
 export const LS_KEY      = 'lf_api_base';
-export const DEFAULT_API = 'http://localhost:3000';
+const backendUrl = (
+  process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:3000"
+).replace(/\/$/, "");
+export const DEFAULT_API = backendUrl;
 
 export function getApiBase(): string {
   if (typeof window === 'undefined') return DEFAULT_API;

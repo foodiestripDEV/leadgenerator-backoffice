@@ -8,7 +8,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Email e password richiesti' }, { status: 400 });
   }
 
-  const backendUrl = (process.env.BACKEND_URL ?? 'http://localhost:3000').replace(/\/$/, '');
+  const backendUrl = (
+    process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:3000"
+  ).replace(/\/$/, "");
 
   let backendRes: Response;
   try {

@@ -6,6 +6,10 @@ import { useFormsCtx } from '@/context/FormsContext';
 import { useToast } from '@/context/ToastContext';
 import { getApiBase, setApiBase } from '@/lib/api';
 
+const backendUrl = (
+  process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:3000"
+).replace(/\/$/, "");
+
 export default function ApiModal() {
   const { apiModalOpen, closeApiModal } = useUI();
   const { reloadForms } = useFormsCtx();
@@ -73,7 +77,7 @@ export default function ApiModal() {
             value={url}
             onChange={e => setUrl(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') handleSave(); }}
-            placeholder="http://localhost:3000"
+            placeholder={backendUrl}
             className="input"
             autoComplete="off"
             spellCheck={false}
