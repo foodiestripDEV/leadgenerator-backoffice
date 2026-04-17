@@ -5,7 +5,9 @@ export type FieldType =
   | 'number'
   | 'textarea'
   | 'select'
-  | 'checkbox';
+  | 'checkbox'
+  | 'provincia'
+  | 'comune';
 
 export interface Step {
   id: string;
@@ -21,6 +23,8 @@ export interface Field {
   required?: boolean;
   options?: string[];
   defaultPrefix?: string;
+  noPrefix?: boolean;
+  linkedProvincia?: string;
   stepId?: string;
   order: number;
 }

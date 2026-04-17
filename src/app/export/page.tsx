@@ -24,7 +24,10 @@ function newColId() {
 
 /** Special source keys always available regardless of form fields */
 const SYSTEM_SOURCES = [
+  { key: '_id',        label: 'ID (db)' },
   { key: '_createdAt', label: 'Data creazione' },
+  { key: '_ip',        label: 'IP' },
+  { key: '_userAgent', label: 'User agent' },
   { key: '_formName',  label: 'Nome form' },
   { key: '_formSlug',  label: 'Slug form' },
   { key: '_sourceUrl', label: 'Source URL' },

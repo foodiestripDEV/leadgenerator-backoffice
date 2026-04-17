@@ -8,6 +8,7 @@ import { useToast } from '@/context/ToastContext';
 
 interface Props {
   field: Field | null;
+  fields: Field[];
   steps: Step[];
   multiStep: boolean;
   existingNames: string[];
@@ -16,18 +17,20 @@ interface Props {
 }
 
 const FIELD_TYPES: { value: FieldType; label: string }[] = [
-  { value: 'text',     label: 'Testo breve (text)' },
-  { value: 'email',    label: 'Email' },
-  { value: 'tel',      label: 'Telefono (tel)' },
-  { value: 'number',   label: 'Numero' },
-  { value: 'textarea', label: 'Testo lungo (textarea)' },
-  { value: 'select',   label: 'Menu a tendina (select)' },
-  { value: 'checkbox', label: 'Casella di spunta (checkbox)' },
+  { value: 'text',      label: 'Testo breve (text)' },
+  { value: 'email',     label: 'Email' },
+  { value: 'tel',       label: 'Telefono (tel)' },
+  { value: 'number',    label: 'Numero' },
+  { value: 'textarea',  label: 'Testo lungo (textarea)' },
+  { value: 'select',    label: 'Menu a tendina (select)' },
+  { value: 'checkbox',  label: 'Casella di spunta (checkbox)' },
+  { value: 'provincia', label: 'Provincia italiana' },
+  { value: 'comune',    label: 'Comune italiano (collegato a Provincia)' },
 ];
 
 const WITH_PLACEHOLDER: FieldType[] = ['text', 'email', 'tel', 'number', 'textarea'];
 
-export default function FieldModal({ field, steps, multiStep, existingNames, onSave, onClose }: Props) {
+export default function FieldModal({ field, fields, steps, multiStep, existingNames, onSave, onClose }: Props) {
   const toast = useToast();
   const labelRef = useRef<HTMLInputElement>(null);
 
@@ -39,8 +42,10 @@ export default function FieldModal({ field, steps, multiStep, existingNames, onS
   const [required, setRequired]       = useState(field?.required || false);
   const [options, setOptions]         = useState((field?.options || []).join('\n'));
   const [defaultPrefix, setDefaultPrefix] = useState(field?.defaultPrefix || '+39');
-  const [stepId, setStepId]           = useState(field?.stepId || '');
-  const [autoName, setAutoName]       = useState(!isEdit);
+  const [noPrefix, setNoPrefix]           = useState(field?.noPrefix || false);
+  const [stepId, setStepId]               = useState(field?.stepId || '');
+  const [linkedProvincia, setLinkedProvincia] = useState(field?.linkedProvincia || '');
+  const [autoName, setAutoName]           = useState(!isEdit);
 
   useEffect(() => {
     setTimeout(() => labelRef.current?.focus(), 50);
@@ -68,6 +73,11 @@ export default function FieldModal({ field, steps, multiStep, existingNames, onS
       return;
     }
 
+    if (type === 'comune' && !linkedProvincia) {
+      toast('Seleziona il campo Provincia collegato', 'err');
+      return;
+    }
+
     const saved: Field = {
       id: field?.id || crypto.randomUUID(),
       type,
@@ -78,7 +88,11 @@ export default function FieldModal({ field, steps, multiStep, existingNames, onS
       options: type === 'select' ? options.split('\n').map(s => s.trim()).filter(Boolean) : [],
       order: field?.order ?? 999,
     };
-    if (type === 'tel') saved.defaultPrefix = defaultPrefix;
+    if (type === 'tel') {
+      saved.defaultPrefix = defaultPrefix;
+      if (noPrefix) saved.noPrefix = true;
+    }
+    if (type === 'comune') saved.linkedProvincia = linkedProvincia;
     if (multiStep && stepId) saved.stepId = stepId;
 
     onSave(saved);
@@ -139,22 +153,39 @@ export default function FieldModal({ field, steps, multiStep, existingNames, onS
             </div>
           )}
 
-          {/* Default prefix (tel only) */}
+          {/* Tel options */}
           {type === 'tel' && (
-            <div className="fg">
-              <label className="fgl">Prefisso di default</label>
-              <select
-                value={defaultPrefix}
-                onChange={e => setDefaultPrefix(e.target.value)}
-                className="input"
-              >
-                {PREFIXES.map(([code, flag, country]) => (
-                  <option key={code + country} value={code}>
-                    {flag}\u00a0{code}\u00a0–\u00a0{country}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <>
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-slate-800">Nascondi prefisso internazionale</span>
+                <label className="relative w-[38px] h-[21px] cursor-pointer flex-shrink-0">
+                  <input
+                    type="checkbox"
+                    className="sr-only peer"
+                    checked={noPrefix}
+                    onChange={e => setNoPrefix(e.target.checked)}
+                  />
+                  <span className="absolute inset-0 rounded-full bg-slate-300 transition peer-checked:bg-indigo-600" />
+                  <span className="absolute top-[3px] left-[3px] w-[15px] h-[15px] rounded-full bg-white shadow transition peer-checked:translate-x-[17px]" />
+                </label>
+              </div>
+              {!noPrefix && (
+                <div className="fg">
+                  <label className="fgl">Prefisso di default</label>
+                  <select
+                    value={defaultPrefix}
+                    onChange={e => setDefaultPrefix(e.target.value)}
+                    className="input"
+                  >
+                    {PREFIXES.map(([code, flag, country]) => (
+                      <option key={code + country} value={code}>
+                        {flag}\u00a0{code}\u00a0–\u00a0{country}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </>
           )}
 
           {/* Options (select only) */}
@@ -164,9 +195,43 @@ export default function FieldModal({ field, steps, multiStep, existingNames, onS
               <textarea
                 value={options}
                 onChange={e => setOptions(e.target.value)}
-                placeholder={'Opzione 1\nOpzione 2\nOpzione 3'}
+                placeholder={'Opzione 1\nOpzione 2\nLabel visibile|valore_salvato'}
                 className="input resize-y min-h-[90px]"
               />
+              <span className="text-xs text-slate-400 mt-1">
+                Formato <code>Label|valore</code> per separare testo visualizzato e valore salvato. Senza <code>|</code> label e valore coincidono.
+              </span>
+            </div>
+          )}
+
+          {/* Linked provincia field (comune only) */}
+          {type === 'comune' && (
+            <div className="fg">
+              <label className="fgl">
+                Campo Provincia collegato <span className="text-red-500 font-normal normal-case tracking-normal">*</span>
+              </label>
+              {fields.filter(f => f.type === 'provincia' && f.id !== field?.id).length === 0 ? (
+                <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+                  Aggiungi prima un campo di tipo <strong>Provincia italiana</strong> al form.
+                </p>
+              ) : (
+                <select
+                  value={linkedProvincia}
+                  onChange={e => setLinkedProvincia(e.target.value)}
+                  className="input"
+                >
+                  <option value="">— Seleziona il campo provincia —</option>
+                  {fields
+                    .filter(f => f.type === 'provincia' && f.id !== field?.id)
+                    .map(f => (
+                      <option key={f.id} value={f.name}>{f.label} ({f.name})</option>
+                    ))
+                  }
+                </select>
+              )}
+              <span className="text-xs text-slate-400 mt-1">
+                Il menu comuni si aggiornerà automaticamente in base alla provincia selezionata.
+              </span>
             </div>
           )}
 

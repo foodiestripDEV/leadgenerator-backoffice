@@ -519,6 +519,7 @@ export default function FormBuilderPage({
       {fieldModalOpen && (
         <FieldModal
           field={editField}
+          fields={sortedFields}
           steps={steps}
           multiStep={draft.multiStep || false}
           existingNames={existingNames}

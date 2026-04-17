@@ -90,6 +90,8 @@ function FieldItem({
           {field.placeholder && ` · "${field.placeholder}"`}
           {field.type === 'tel' && ` · prefisso: ${field.defaultPrefix || '+39'}`}
           {field.type === 'select' && field.options?.length ? ` · ${field.options.length} opzioni` : ''}
+          {field.type === 'comune' && field.linkedProvincia ? ` · provincia: ${field.linkedProvincia}` : ''}
+          {field.type === 'comune' && !field.linkedProvincia ? ' · ⚠ nessuna provincia collegata' : ''}
         </div>
       </div>
 
