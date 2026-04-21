@@ -5,7 +5,7 @@ import { use } from 'react';
 import { useFormCtx } from '@/context/FormContext';
 import { useToast } from '@/context/ToastContext';
 import { putFormConfig } from '@/lib/api';
-import type { Field, FormConfig, FormStyle, Step } from '@/lib/types';
+import type { Field, FieldTracking, FormConfig, FormStyle, Step, TrackingConfig } from '@/lib/types';
 import FieldModal from '@/components/FieldModal';
 import FieldList from '@/components/FieldList';
 import StepManager from '@/components/StepManager';
@@ -106,6 +106,38 @@ export default function FormBuilderPage({
 
   function set<K extends keyof FormConfig>(key: K, val: FormConfig[K]) {
     setDraft(d => ({ ...d, [key]: val }));
+  }
+
+  function setTracking<K extends keyof TrackingConfig>(key: K, val: TrackingConfig[K]) {
+    setDraft(d => ({ ...d, tracking: { ...d.tracking, [key]: val || undefined } }));
+  }
+
+  function defaultFieldTracking(f: Field): FieldTracking {
+    if (f.type === 'email')     return { plainKey: 'userEmail', hashedKey: 'hashedEmail' };
+    if (f.type === 'tel')       return { hashedKey: 'hashedPhone' };
+    if (f.type === 'comune')    return { hashedKey: 'hashedCity' };
+    if (f.type === 'provincia') return { plainKey: 'formRegion' };
+    return {};
+  }
+
+  function autoGtmKey(f: Field): string {
+    return 'form' + f.name.charAt(0).toUpperCase() + f.name.slice(1);
+  }
+
+  function getFieldTracking(f: Field): FieldTracking {
+    return draft.tracking?.fields?.[f.name] ?? defaultFieldTracking(f);
+  }
+
+  function setFieldTracking(fieldName: string, ft: FieldTracking) {
+    const current = draft.tracking?.fields || {};
+    setTracking('fields', { ...current, [fieldName]: ft });
+  }
+
+  function initFieldsIfNeeded() {
+    if (draft.tracking?.fields) return;
+    const map: Record<string, FieldTracking> = {};
+    sortedFields.forEach(f => { map[f.name] = defaultFieldTracking(f); });
+    setTracking('fields', map);
   }
 
   function setStyle<K extends keyof FormStyle>(key: K, val: string) {
@@ -417,6 +449,218 @@ export default function FormBuilderPage({
                 />
               </div>
             </div>
+          </div>
+        </Section>
+
+        {/* ── Tracking GTM ── */}
+        <Section title="Tracciamento GTM">
+          <div className="space-y-5 pt-3">
+
+            {/* Event name */}
+            <div className="fg">
+              <label className="fgl">Nome evento</label>
+              <input
+                value={draft.tracking?.eventName || ''}
+                onChange={e => setTracking('eventName', e.target.value || undefined)}
+                placeholder="submit_contact_form"
+                className="input"
+              />
+              <span className="text-xs text-slate-400">
+                Nome dell&apos;evento inviato al dataLayer GTM. Default:{' '}
+                <code className="text-indigo-500">submit_contact_form</code>
+              </span>
+            </div>
+
+            {/* Static params */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Parametri statici</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const current = draft.tracking?.params || {};
+                    const key = `param${Object.keys(current).length + 1}`;
+                    setTracking('params', { ...current, [key]: '' });
+                  }}
+                  className="btn btn-secondary btn-sm"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-3 h-3">
+                    <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+                  </svg>
+                  Aggiungi
+                </button>
+              </div>
+              <p className="text-xs text-slate-400 mb-3">
+                Valori fissi aggiunti ad ogni evento GTM (es. <code className="text-indigo-500">formSector</code>, <code className="text-indigo-500">formProduct</code>).
+              </p>
+              {Object.keys(draft.tracking?.params || {}).length === 0 && (
+                <p className="text-xs text-slate-400 italic">Nessun parametro statico configurato.</p>
+              )}
+              <div className="space-y-2">
+                {Object.entries(draft.tracking?.params || {}).map(([k, v]) => (
+                  <div key={k} className="flex items-center gap-2">
+                    <input
+                      value={k}
+                      onChange={e => {
+                        const newKey = e.target.value;
+                        const current = { ...draft.tracking?.params };
+                        delete current[k];
+                        setTracking('params', { ...current, [newKey]: v });
+                      }}
+                      placeholder="chiave GTM"
+                      className="input flex-1 font-mono text-sm"
+                    />
+                    <span className="text-slate-300 flex-shrink-0">→</span>
+                    <input
+                      value={v}
+                      onChange={e => setTracking('params', { ...draft.tracking?.params, [k]: e.target.value })}
+                      placeholder="valore"
+                      className="input flex-1 text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = { ...draft.tracking?.params };
+                        delete next[k];
+                        setTracking('params', Object.keys(next).length ? next : undefined);
+                      }}
+                      className="text-slate-300 hover:text-red-400 transition-colors flex-shrink-0 p-1"
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
+                        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Dynamic fields */}
+            {sortedFields.length > 0 && (
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Parametri dinamici</p>
+                  {!draft.tracking?.fields && (
+                    <span className="text-[10px] text-slate-400 bg-slate-100 px-2 py-0.5 rounded">default</span>
+                  )}
+                </div>
+                <p className="text-xs text-slate-400 mb-3">
+                  Per ogni campo scegli le chiavi GTM per il valore in chiaro e/o hashato (SHA-256).
+                </p>
+
+                {/* header */}
+                <div className="grid gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-t-lg border-b-0 text-[10px] font-semibold uppercase tracking-wider text-slate-400" style={{gridTemplateColumns:'38px 1fr 1fr 1fr'}}>
+                  <span></span>
+                  <span>Campo</span>
+                  <span>Chiave plain</span>
+                  <span>Chiave SHA-256</span>
+                </div>
+
+                <div className="border border-slate-200 rounded-b-lg overflow-hidden divide-y divide-slate-100">
+                  {sortedFields.map(f => {
+                    const ft = getFieldTracking(f);
+                    const included = !!(ft.plainKey || ft.hashedKey);
+                    return (
+                      <div key={f.id} className={`grid items-center gap-2 px-3 py-2.5 hover:bg-slate-50 transition-colors ${!included ? 'opacity-50' : ''}`} style={{gridTemplateColumns:'38px 1fr 1fr 1fr'}}>
+                        {/* include toggle */}
+                        <Toggle
+                          checked={included}
+                          onChange={on => {
+                            initFieldsIfNeeded();
+                            const onValue: FieldTracking = on
+                              ? (Object.keys(defaultFieldTracking(f)).length
+                                  ? defaultFieldTracking(f)
+                                  : { plainKey: autoGtmKey(f) })
+                              : {};
+                            setFieldTracking(f.name, onValue);
+                          }}
+                        />
+                        {/* label */}
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className="inline-block px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-mono text-[10px] flex-shrink-0">
+                            {f.type}
+                          </span>
+                          <span className="text-xs text-slate-700 truncate">{f.label}</span>
+                        </div>
+                        {/* plain key */}
+                        <input
+                          value={ft.plainKey || ''}
+                          disabled={!included}
+                          onChange={e => { initFieldsIfNeeded(); setFieldTracking(f.name, { ...ft, plainKey: e.target.value || undefined }); }}
+                          placeholder="— non inviare —"
+                          className="input font-mono text-xs disabled:opacity-40 disabled:bg-slate-50"
+                        />
+                        {/* hashed key */}
+                        <input
+                          value={ft.hashedKey || ''}
+                          disabled={!included || f.type === 'provincia'}
+                          onChange={e => { initFieldsIfNeeded(); setFieldTracking(f.name, { ...ft, hashedKey: e.target.value || undefined }); }}
+                          placeholder={f.type === 'provincia' ? '—' : '— non inviare —'}
+                          className="input font-mono text-xs disabled:opacity-40 disabled:bg-slate-50"
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Payload preview */}
+            {(sortedFields.length > 0 || Object.keys(draft.tracking?.params || {}).length > 0) && (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Preview payload GTM</p>
+                <div className="rounded-lg border border-slate-200 overflow-hidden text-sm">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="bg-slate-50 border-b border-slate-200">
+                        <th className="text-left px-3 py-2 text-xs font-semibold text-slate-500 w-1/2">Campo</th>
+                        <th className="text-left px-3 py-2 text-xs font-semibold text-slate-500 w-1/2">Chiave GTM</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      <tr className="bg-indigo-50/40">
+                        <td className="px-3 py-2 text-xs text-slate-400 italic">—</td>
+                        <td className="px-3 py-2 font-mono text-xs text-indigo-600">
+                          event: &quot;{draft.tracking?.eventName || 'submit_contact_form'}&quot;
+                        </td>
+                      </tr>
+                      {Object.entries(draft.tracking?.params || {}).map(([k, v]) => (
+                        <tr key={'sp-' + k} className="bg-amber-50/40">
+                          <td className="px-3 py-2 text-xs text-slate-500 flex items-center gap-1.5">
+                            <span className="inline-block px-1.5 py-0.5 rounded bg-amber-100 text-amber-600 font-mono text-[10px]">statico</span>
+                            {v || <span className="text-slate-300 italic">—</span>}
+                          </td>
+                          <td className="px-3 py-2 font-mono text-xs text-slate-700">{k || <span className="text-slate-300 italic">—</span>}</td>
+                        </tr>
+                      ))}
+                      {sortedFields.map(f => {
+                        const ft = getFieldTracking(f);
+                        const rows: { key: string; note: string }[] = [];
+                        if (ft.plainKey)  rows.push({ key: ft.plainKey,  note: 'plain' });
+                        if (ft.hashedKey) rows.push({ key: ft.hashedKey, note: 'SHA-256' });
+                        if (!rows.length) return null;
+                        return rows.map((row, i) => (
+                          <tr key={f.id + '-' + i} className="hover:bg-slate-50">
+                            <td className="px-3 py-2 text-xs text-slate-600">
+                              {i === 0 && (
+                                <span className="flex items-center gap-1.5">
+                                  <span className="inline-block px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-mono text-[10px]">{f.type}</span>
+                                  {f.label}
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2 font-mono text-xs text-slate-700 flex items-center gap-1.5">
+                              <code>{row.key}</code>
+                              <span className={`text-[10px] px-1 py-0.5 rounded ${row.note === 'SHA-256' ? 'bg-violet-100 text-violet-600' : 'bg-slate-100 text-slate-400'}`}>{row.note}</span>
+                            </td>
+                          </tr>
+                        ));
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </div>
         </Section>
 

@@ -38,6 +38,17 @@ export interface FormStyle {
   labelColor?:       string;   // field label colour       (default #333)
 }
 
+export interface FieldTracking {
+  plainKey?:  string; // GTM key for plain value;  '' or absent = don't send plain
+  hashedKey?: string; // GTM key for SHA-256 value; '' or absent = don't send hashed
+}
+
+export interface TrackingConfig {
+  eventName?: string;               // default: 'submit_contact_form'
+  params?: Record<string, string>;  // static key→value added to every GTM event
+  fields?: Record<string, FieldTracking>; // per-field tracking config
+}
+
 export interface FormConfig {
   title?: string;
   description?: string;
@@ -47,6 +58,7 @@ export interface FormConfig {
   multiStep?: boolean;
   stepperStyle?: 'dots' | 'bar';
   style?: FormStyle;
+  tracking?: TrackingConfig;
   steps?: Step[];
   fields: Field[];
 }
